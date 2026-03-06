@@ -1,0 +1,33 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: m3_postgres
+    environment:
+      POSTGRES_DB: bigdata
+      POSTGRES_USER: bigdata
+      POSTGRES_PASSWORD: bigdata
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bigdata -d bigdata"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+
+  app:
+    build: ./app
+    container_name: m3_app_loader
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: bigdata
+      DB_USER: bigdata
+      DB_PASSWORD: bigdata
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pg_data:

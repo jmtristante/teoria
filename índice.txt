@@ -1,0 +1,256 @@
+================================================================================
+FORMACIÓN CI/CD PARA BIG DATA - VERSIÓN SIMPLIFICADA
+================================================================================
+
+================================================================================
+
+MÓDULO 1: FUNDAMENTOS DE CI/CD (3h)
+================================================================================
+
+1.1. Introducción a CI/CD
+   TEORÍA (1h):
+   - ¿Qué es CI/CD y por qué es importante?
+   - Diferencia entre Integración Continua (CI) y Entrega Continua (CD)
+   - Continuous Delivery vs Continuous Deployment
+   - Beneficios de CI/CD en proyectos de Big Data
+   - Ciclo de vida de una pipeline: commit, build, test, deploy
+   - DevOps y DataOps: conceptos básicos
+   
+   PRÁCTICA (1h):
+   - Instalación y configuración de Git
+   - Crear repositorio local
+   - Ejercicio: Flujo básico con commits, branches y merges
+   - Configurar .gitignore para proyectos Big Data
+
+1.2. Estrategias de Versionado
+   TEORÍA (0.5h):
+   - Git Flow simplificado
+   - Branching strategies: feature, develop, main
+   - Versionado semántico (v1.0.0, v1.1.0, etc.)
+   - Tags y releases
+   
+   PRÁCTICA (0.5h):
+   - Ejercicio: Crear ramas de feature y hacer merge
+   - Crear tags para versiones
+   - Resolver conflictos básicos
+
+================================================================================
+
+MÓDULO 2: AUTOMATIZACIÓN DE PRUEBAS (4h)
+================================================================================
+
+2.1. Testing en Big Data
+   TEORÍA (1h):
+   - Importancia del testing en pipelines de datos
+   - Tipos de pruebas: unitarias, integración, calidad de datos
+   - Pirámide de testing adaptada a Big Data
+   - Testing de transformaciones ETL
+   - Validación de esquemas y calidad de datos
+   
+   PRÁCTICA (1.5h):
+   - Instalación de PyTest
+   - Ejercicio: Escribir tests unitarios para funciones de transformación Python
+   - Ejercicio: Tests para funciones PySpark básicas
+   - Crear fixtures con datos de prueba
+   - Ejecutar suite de tests y ver resultados
+
+2.2. Validación de Calidad de Datos
+   TEORÍA (0.5h):
+   - Great Expectations: introducción
+   - Expectations básicas: null checks, rangos, tipos de datos
+   - Validación de esquemas
+   
+   PRÁCTICA (1h):
+   - Instalación de Great Expectations
+   - Ejercicio: Crear expectations para un dataset
+   - Validar datos con expectations
+   - Integrar validaciones en código Python
+
+================================================================================
+
+MÓDULO 3: DOCKER PARA BIG DATA (4h)
+================================================================================
+
+3.1. Fundamentos de Docker
+   TEORÍA (1h):
+   - ¿Qué son los contenedores?
+   - Docker: imágenes vs contenedores
+   - Componentes: Dockerfile, imágenes, contenedores, volúmenes
+   - Ventajas de Docker en proyectos Big Data
+   - Buenas prácticas: tamaño de imágenes, layers, multi-stage builds
+   
+   PRÁCTICA (1.5h):
+   - Verificar instalación de Docker Desktop
+   - Comandos básicos: docker run, ps, stop, rm
+   - Ejercicio: Ejecutar contenedor de Python
+   - Ejercicio: Crear Dockerfile simple para script Python
+   - Build de imagen y ejecución de contenedor
+   - Trabajar con volúmenes para persistir datos
+
+3.2. Docker para Aplicaciones Big Data
+   TEORÍA (0.5h):
+   - Dockerizar aplicaciones PySpark
+   - Docker Compose: múltiples servicios
+   - Networking entre contenedores
+   
+   PRÁCTICA (1h):
+   - Ejercicio: Dockerfile para aplicación PySpark
+   - Crear docker-compose.yml con Spark y PostgreSQL
+   - Ejercicio: Levantar stack completo con docker-compose
+   - Conectar servicios entre sí
+
+3.3. Registro de Imágenes Docker
+   TEORÍA (0.5h):
+   - Docker Registry: qué es y para qué sirve
+   - Push y pull de imágenes
+   - Estrategias de tagging: latest, versiones, entornos
+   
+   PRÁCTICA (0.5h):
+   - Levantar registry local con Docker
+   - Ejercicio: Tagear imagen local
+   - Push de imagen al registry local
+   - Pull de imagen desde el registry
+
+================================================================================
+
+MÓDULO 4: HERRAMIENTAS CI/CD (4h)
+================================================================================
+
+4.1. Jenkins
+   TEORÍA (0.5h):
+   - Arquitectura básica de Jenkins
+   - Jobs y pipelines
+   - Jenkinsfile: sintaxis declarativa
+   - Plugins esenciales
+   
+   PRÁCTICA (1.5h):
+   - Instalar Jenkins en Docker
+   - Configuración inicial y plugins básicos
+   - Ejercicio: Crear job freestyle simple
+   - Ejercicio: Pipeline con Jenkinsfile (build + test)
+   - Configurar triggers (push/poll SCM)
+   - Ver logs y resultados de ejecución
+
+4.2. GitLab CI/CD
+   TEORÍA (0.5h):
+   - Introducción a GitLab CI/CD
+   - Archivo .gitlab-ci.yml: estructura básica
+   - Stages, jobs, scripts
+   - Runners y executors
+   
+   PRÁCTICA (1h):
+   - Instalar GitLab Runner en Docker
+   - Ejercicio: Crear .gitlab-ci.yml básico
+   - Pipeline con stages: build, test, deploy
+   - Ejercicio: Pipeline para proyecto PySpark
+   - Variables y artifacts
+
+================================================================================
+
+MÓDULO 5: PIPELINES CI/CD COMPLETAS (3.5h)
+================================================================================
+
+5.1. Diseño de Pipelines para Big Data
+   TEORÍA (1h):
+   - Stages de una pipeline: clone, build, test, package, deploy
+   - Gestión de dependencias Python (requirements.txt, pip)
+   - Empaquetado de aplicaciones PySpark
+   - Versionado de artefactos
+   - Estrategias de deployment: recreate, rolling update
+   
+   PRÁCTICA (1.5h):
+   - Ejercicio: Pipeline completa en Jenkins
+     * Stage 1: Checkout código
+     * Stage 2: Instalar dependencias
+     * Stage 3: Ejecutar tests
+     * Stage 4: Build imagen Docker
+     * Stage 5: Push a registry
+     * Stage 6: Deploy (ejecutar contenedor)
+   - Ejercicio: Implementar la misma pipeline en GitLab CI
+   - Manejo de errores y rollback manual
+
+5.2. Gestión de Configuración
+   TEORÍA (0.5h):
+   - Configuración por entorno (dev, test, prod)
+   - Variables de entorno
+   - Archivos de configuración (.env, config.yaml)
+   - Gestión básica de secretos (variables encriptadas)
+   
+   PRÁCTICA (0.5h):
+   - Ejercicio: Configurar variables en Jenkins/GitLab
+   - Uso de .env en aplicaciones
+   - Ejercicio: Cambiar configuración según entorno
+
+================================================================================
+
+MÓDULO 6: APACHE AIRFLOW Y CI/CD (2.5h)
+================================================================================
+
+6.1. Introducción a Airflow
+   TEORÍA (0.5h):
+   - ¿Qué es Apache Airflow?
+   - DAGs: Directed Acyclic Graphs
+   - Operators, Tasks, Dependencies
+   - Scheduling y backfilling
+   
+   PRÁCTICA (1h):
+   - Instalar Airflow con Docker (docker-compose)
+   - Acceder a la UI de Airflow
+   - Ejercicio: Crear DAG simple de ETL
+   - Definir dependencias entre tasks
+   - Ejecutar y monitorizar DAG
+
+6.2. CI/CD para DAGs de Airflow
+   TEORÍA (0.5h):
+   - Testing de DAGs
+   - Despliegue automatizado de DAGs
+   - Versionado de workflows
+   
+   PRÁCTICA (0.5h):
+   - Ejercicio: Tests para validar DAG (estructura, imports)
+   - Pipeline CI/CD para copiar DAGs a carpeta de Airflow
+   - Ejercicio: Deployment automático de DAG nuevo
+
+================================================================================
+
+MÓDULO 7: MONITORIZACIÓN BÁSICA (1.5h)
+================================================================================
+
+7.1. Logs y Monitorización
+   TEORÍA (0.5h):
+   - Importancia de logs en pipelines
+   - Logs estructurados
+   - Health checks post-deployment
+   - Métricas básicas a monitorizar
+   
+   PRÁCTICA (1h):
+   - Ejercicio: Implementar logging en aplicación Python
+   - Ver logs de contenedores Docker (docker logs)
+   - Ejercicio: Crear health check endpoint simple
+   - Implementar health check en pipeline
+   - Alertas básicas por email en caso de fallo
+
+================================================================================
+
+MÓDULO 8: PROYECTO FINAL (4h)
+================================================================================
+
+8.1. Proyecto Práctico
+   
+   DESCRIPCIÓN DEL PROYECTO:
+   Crear un pipeline CI/CD completo para una aplicación de procesamiento de datos
+   que incluya todos los conceptos aprendidos.
+   
+   COMPONENTES:
+   1. Aplicación PySpark que lee CSV, transforma datos y escribe en PostgreSQL
+   2. Tests unitarios con PyTest
+   3. Validaciones de calidad con Great Expectations
+   4. Dockerfile para contenerizar la aplicación
+   5. Pipeline CI/CD (Jenkins o GitLab CI) con stages:
+      - Build
+      - Test
+      - Build Docker image
+      - Push to registry
+      - Deploy
+   6. DAG de Airflow que ejecuta la aplicación
+   7. Logs y monitorización básica
