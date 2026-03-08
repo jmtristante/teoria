@@ -160,10 +160,10 @@ report_job:
   stage: report
   image: python:3.11
   script:
-    - echo "========== REPORT STAGE =========="
-    - echo "Pipeline completada exitosamente"
-    - date
-    - echo "Proyecto: ci-cd-demo-python"
+    - 'echo "========== REPORT STAGE =========="'
+    - 'echo "Pipeline completada exitosamente"'
+    - 'date'
+    - 'echo "Proyecto: ci-cd-demo-python"'
   only:
     - main
     - master
