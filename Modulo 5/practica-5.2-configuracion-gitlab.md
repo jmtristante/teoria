@@ -492,10 +492,11 @@ variables:
   services:
     - docker:dind
   script:
-    - echo "🔨 Building Docker image..."
-    - export IMAGE="${DOCKER_REGISTRY}/${APP_NAME}:${CI_COMMIT_SHORT_SHA}"
-    - docker build -t ${IMAGE} .
-    - echo "✅ Image built: ${IMAGE}"
+    - |
+      echo "Building Docker image..."
+      IMAGE="${DOCKER_REGISTRY}/${APP_NAME}:${CI_COMMIT_SHORT_SHA}"
+      docker build -t "${IMAGE}" .
+      echo "Image built: ${IMAGE}"
   tags:
     - docker
 
@@ -506,9 +507,10 @@ variables:
   before_script:
     - pip install --no-cache-dir -r requirements.txt
   script:
-    - echo "🧪 Running tests..."
-    - python -m pytest tests/ -v
-    - echo "✅ Tests passed"
+    - |
+      echo "Running tests..."
+      python -m pytest tests/ -v
+      echo "Tests passed"
 
 # Template para deploy
 .deploy_template:
@@ -517,18 +519,16 @@ variables:
   services:
     - docker:dind
   script:
-    - echo "🚀 Deploying to ${CI_ENVIRONMENT_NAME}..."
-    - export IMAGE="${DOCKER_REGISTRY}/${APP_NAME}:${CI_COMMIT_SHORT_SHA}"
-    - export CONTAINER="${APP_NAME}-${CI_ENVIRONMENT_SLUG}"
-    
-    # Detener contenedor anterior
-    - docker stop ${CONTAINER} 2>/dev/null || true
-    - docker rm ${CONTAINER} 2>/dev/null || true
-    
-    # Iniciar nuevo contenedor con variables del environment
     - |
+      echo "Deploying to ${CI_ENVIRONMENT_NAME}..."
+      IMAGE="${DOCKER_REGISTRY}/${APP_NAME}:${CI_COMMIT_SHORT_SHA}"
+      CONTAINER="${APP_NAME}-${CI_ENVIRONMENT_SLUG}"
+
+      docker stop "${CONTAINER}" 2>/dev/null || true
+      docker rm "${CONTAINER}" 2>/dev/null || true
+
       docker run -d \
-        --name ${CONTAINER} \
+        --name "${CONTAINER}" \
         -e APP_ENV="${APP_ENV}" \
         -e DB_HOST="${DB_HOST}" \
         -e DB_PORT="${DB_PORT}" \
@@ -541,13 +541,13 @@ variables:
         -e FEATURE_ANALYTICS="${FEATURE_ANALYTICS}" \
         -e FEATURE_NOTIFICATIONS="${FEATURE_NOTIFICATIONS:-true}" \
         -e CI_COMMIT_SHORT_SHA="${CI_COMMIT_SHORT_SHA}" \
-        ${IMAGE}
-    
-    - echo "⏳ Esperando inicio..."
-    - sleep 3
-    - echo "📋 Logs del contenedor:"
-    - docker logs ${CONTAINER}
-    - echo "✅ Deploy completado en ${CI_ENVIRONMENT_NAME}"
+        "${IMAGE}"
+
+      echo "Waiting for container startup..."
+      sleep 3
+      echo "Container logs:"
+      docker logs "${CONTAINER}"
+      echo "Deploy completed in ${CI_ENVIRONMENT_NAME}"
 
 # ========================================
 # JOBS - BUILD
