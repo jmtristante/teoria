@@ -136,11 +136,11 @@ git commit -m "Initial commit: pipeline app"
 
 ### Paso 1.1: Crear Jenkinsfile
 
-**Jenkinsfile:**
+**Jenkinsfile (usando imágenes Docker):**
 
 ```groovy
 pipeline {
-    agent any
+    agent none  // Cada stage define su propio agent
     
     environment {
         REGISTRY = "localhost:5000"
@@ -158,34 +158,47 @@ pipeline {
     
     stages {
         stage('Checkout') {
+            agent any
             steps {
                 echo "=== Stage 1: Checkout ==="
                 sh '''
                     pwd
                     ls -la
                 '''
+                // Guardar workspace para stages siguientes
+                stash includes: '**', name: 'source-code'
             }
         }
         
         stage('Install Dependencies') {
+            agent {
+                docker {
+                    image 'python:3.11-slim'
+                    reuseNode true
+                }
+            }
             steps {
                 echo "=== Stage 2: Install Dependencies ==="
+                unstash 'source-code'
                 sh '''
-                    set -e
-                    python3 -m venv venv
-                    . venv/bin/activate
-                    pip install -r requirements.txt
+                    pip install --no-cache-dir -r requirements.txt
                     echo "✓ Dependencies installed"
                 '''
             }
         }
         
         stage('Test') {
+            agent {
+                docker {
+                    image 'python:3.11-slim'
+                    reuseNode true
+                }
+            }
             steps {
                 echo "=== Stage 3: Test ==="
+                unstash 'source-code'
                 sh '''
-                    set -e
-                    . venv/bin/activate
+                    pip install --no-cache-dir -r requirements.txt
                     python -m pytest tests/ -v
                     echo "✓ Tests passed"
                 '''
@@ -193,8 +206,10 @@ pipeline {
         }
         
         stage('Build Docker') {
+            agent any
             steps {
                 echo "=== Stage 4: Build Docker Image ==="
+                unstash 'source-code'
                 sh '''
                     set -e
                     IMAGE="${REGISTRY}/${APP_NAME}:${BUILD_NUMBER}"
@@ -207,13 +222,14 @@ pipeline {
         }
         
         stage('Push Registry') {
+            agent any
             steps {
                 echo "=== Stage 5: Push to Registry ==="
                 sh '''
                     set -e
                     IMAGE="${REGISTRY}/${APP_NAME}:${BUILD_NUMBER}"
                     echo "Pushing: $IMAGE"
-                    # Nota: en casa, docker push requiere registry running
+                    # Nota: en producción descomentar para push real
                     # docker push ${IMAGE}
                     echo "✓ (Skipped in demo, would push to registry)"
                 '''
@@ -221,6 +237,7 @@ pipeline {
         }
         
         stage('Deploy') {
+            agent any
             steps {
                 echo "=== Stage 6: Deploy (Env=${DEPLOY_ENV}) ==="
                 sh '''
@@ -248,18 +265,43 @@ pipeline {
     
     post {
         always {
-            echo "=== Pipeline finished ==="
-            sh 'rm -rf venv'
+            node('master') {
+                echo "=== Pipeline finished ==="
+            }
         }
         success {
-            echo "✓ Pipeline succeeded"
+            node('master') {
+                echo "✓ Pipeline succeeded"
+            }
         }
         failure {
-            echo "✗ Pipeline failed"
+            node('master') {
+                echo "✗ Pipeline failed"
+            }
         }
     }
 }
 ```
+
+**Cambios clave:**
+
+1. **`agent none`** en el pipeline principal: cada stage define su propio agent
+2. **`agent { docker { image 'python:3.11-slim' } }`**: stages de Python usan contenedor Docker
+3. **`reuseNode true`**: reutiliza el workspace del nodo Jenkins
+4. **`stash/unstash`**: guarda y recupera archivos entre stages con diferentes agents
+5. **`agent any`**: stages que necesitan Docker del host (build/deploy) usan el agente normal
+
+**¿Por qué usar Docker agents?**
+
+- **Entorno reproducible**: cada stage usa exactamente la versión de Python especificada
+- **Sin instalaciones previas**: no necesitas Python instalado en el servidor Jenkins
+- **Aislamiento**: cada stage corre en su propio contenedor limpio
+- **Portabilidad**: funciona igual en cualquier Jenkins con Docker disponible
+
+**Requisitos:**
+
+- Jenkins debe tener Docker instalado y accesible
+- El plugin "Docker Pipeline" debe estar instalado en Jenkins
 
 ### Paso 1.2: Commit Jenkinsfile
 
@@ -495,10 +537,13 @@ docker logs app-pipeline-dev
 | Trigger | Manual o webhook Git | Automático o manual |
 | Stages | Declarados explícitos | Stages + dependencias |
 | Variables | `${VAR}` (Groovy) | `$VAR` (YAML) |
-| Artifacts | `archiveArtifacts` | `artifacts:` |
+| Docker agents | `agent { docker { image '...' } }` | `image: python:3.11` |
+| Artifacts | `stash/unstash` o `archiveArtifacts` | `artifacts:` |
 | Logs | Console Output en Jenkins | Logs en GitLab UI |
 | Deploy manual | `input` o `when: manual` | `when: manual` |
 | Secrets | Jenkins Credentials | GitLab Protected Variables |
+
+**Nota importante:** Ambas herramientas pueden ejecutar stages dentro de contenedores Docker, eliminando la necesidad de instalar dependencias (Python, Node.js, etc.) en el servidor CI/CD.
 
 ### Conceptos Clave Aprendidos
 
@@ -526,11 +571,34 @@ docker logs app-pipeline-dev
 
 ### ❌ Error: "Docker image not found"
 
-**Solución:** Asegurar que Docker está corriendo y accesible en pipeline.
+**Solución:** Asegurar que Docker está corriendo y accesible en el servidor Jenkins.
 
 ```bash
-docker ps  # Verificar Docker
+docker ps  # Verificar Docker está corriendo
+docker pull python:3.11-slim  # Pre-descargar imagen
 ```
+
+### ❌ Error: "Cannot connect to Docker daemon"
+
+**Solución:** Jenkins necesita permisos para acceder al Docker socket.
+
+```bash
+# Agregar usuario jenkins al grupo docker (Linux)
+sudo usermod -aG docker jenkins
+sudo systemctl restart jenkins
+
+# O en Docker Desktop (Windows/Mac), asegurar que está habilitado
+```
+
+### ❌ Error: "Docker Pipeline plugin not installed"
+
+**Solución:** Instalar el plugin en Jenkins.
+
+1. Jenkins → "Manage Jenkins" → "Manage Plugins"
+2. Tab "Available"
+3. Buscar "Docker Pipeline"
+4. Marcar checkbox e instalar
+5. Reiniciar Jenkins
 
 ### ❌ Error: "Pipeline stuck pending"
 
@@ -541,12 +609,16 @@ docker ps  # Verificar Docker
 curl http://localhost:81/api/v4/runners  # En GitLab
 ```
 
-### ❌ Error: "Python module not found"
+### ❌ Error: "Workspace changed between stages"
 
-**Solución:** Instalar pytest antes de ejecutar tests.
+**Solución:** Usar `stash` y `unstash` para transferir archivos entre stages con diferentes agents.
 
-```bash
-pip install -r requirements.txt
+```groovy
+// En el stage que produce los archivos
+stash includes: '**', name: 'my-files'
+
+// En el stage que los necesita
+unstash 'my-files'
 ```
 
 ---
