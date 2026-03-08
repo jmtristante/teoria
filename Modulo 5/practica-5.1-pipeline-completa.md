@@ -158,10 +158,6 @@ Jenkins necesita el plugin "Docker Pipeline" para usar `agent { docker {...} }`.
 
 ### Paso 1.1: Crear Jenkinsfile
 
-Tienes dos opciones según tengas o no el plugin Docker Pipeline instalado.
-
-#### **Opción A: Con Plugin Docker Pipeline (Recomendado)**
-
 **Jenkinsfile (usando imágenes Docker):**
 
 ```groovy
@@ -172,6 +168,7 @@ pipeline {
         REGISTRY = "localhost:5000"
         APP_NAME = "app-pipeline"
         BUILD_VERSION = "${BUILD_NUMBER}"
+        PYTHON_IMAGE = "python:3.11-slim"
     }
     
     parameters {
@@ -200,12 +197,13 @@ pipeline {
             agent {
                 docker {
                     image 'python:3.11-slim'
+                    args '-u root:root'
                     reuseNode true
                 }
             }
             steps {
                 echo "=== Stage 2: Install Dependencies ==="
-                unstash 'source-code'
+                // No necesita unstash porque reuseNode mantiene el workspace
                 sh '''
                     pip install --no-cache-dir -r requirements.txt
                     echo "✓ Dependencies installed"
@@ -217,12 +215,13 @@ pipeline {
             agent {
                 docker {
                     image 'python:3.11-slim'
+                    args '-u root:root'
                     reuseNode true
                 }
             }
             steps {
                 echo "=== Stage 3: Test ==="
-                unstash 'source-code'
+                // No necesita unstash porque reuseNode mantiene el workspace
                 sh '''
                     pip install --no-cache-dir -r requirements.txt
                     python -m pytest tests/ -v
@@ -235,7 +234,7 @@ pipeline {
             agent any
             steps {
                 echo "=== Stage 4: Build Docker Image ==="
-                unstash 'source-code'
+                // No necesita unstash porque reuseNode mantiene el workspace
                 sh '''
                     set -e
                     IMAGE="${REGISTRY}/${APP_NAME}:${BUILD_NUMBER}"
@@ -313,152 +312,10 @@ pipeline {
 
 1. **`agent none`** en el pipeline principal: cada stage define su propio agent
 2. **`agent { docker { image 'python:3.11-slim' } }`**: stages de Python usan contenedor Docker
-3. **`reuseNode true`**: reutiliza el workspace del nodo Jenkins
-4. **`stash/unstash`**: guarda y recupera archivos entre stages con diferentes agents
-5. **`agent any`**: stages que necesitan Docker del host (build/deploy) usan el agente normal
-
----
-
-#### **Opción B: Sin Plugin Docker (ejecutando docker run directamente)**
-
-Si obtienes el error `Invalid agent type "docker"`, usa esta versión que ejecuta contenedores Docker manualmente:
-
-**Jenkinsfile (sin plugin Docker):**
-
-```groovy
-pipeline {
-    agent any
-    
-    environment {
-        REGISTRY = "localhost:5000"
-        APP_NAME = "app-pipeline"
-        BUILD_VERSION = "${BUILD_NUMBER}"
-        PYTHON_IMAGE = "python:3.11-slim"
-    }
-    
-    parameters {
-        choice(
-            name: 'DEPLOY_ENV',
-            choices: ['dev', 'test', 'prod'],
-            description: 'Environment to deploy'
-        )
-    }
-    
-    stages {
-        stage('Checkout') {
-            steps {
-                echo "=== Stage 1: Checkout ==="
-                sh '''
-                    pwd
-                    ls -la
-                '''
-            }
-        }
-        
-        stage('Install Dependencies') {
-            steps {
-                echo "=== Stage 2: Install Dependencies ==="
-                sh '''
-                    docker run --rm \\
-                        -v "${WORKSPACE}:/workspace" \\
-                        -w /workspace \\
-                        ${PYTHON_IMAGE} \\
-                        pip install --no-cache-dir -r requirements.txt
-                    echo "✓ Dependencies installed"
-                '''
-            }
-        }
-        
-        stage('Test') {
-            steps {
-                echo "=== Stage 3: Test ==="
-                sh '''
-                    docker run --rm \\
-                        -v "${WORKSPACE}:/workspace" \\
-                        -w /workspace \\
-                        ${PYTHON_IMAGE} \\
-                        sh -c "pip install --no-cache-dir -r requirements.txt && python -m pytest tests/ -v"
-                    echo "✓ Tests passed"
-                '''
-            }
-        }
-        
-        stage('Build Docker') {
-            steps {
-                echo "=== Stage 4: Build Docker Image ==="
-                sh '''
-                    set -e
-                    IMAGE="${REGISTRY}/${APP_NAME}:${BUILD_NUMBER}"
-                    echo "Building: $IMAGE"
-                    docker build -t ${IMAGE} -t ${REGISTRY}/${APP_NAME}:latest .
-                    docker images | grep ${APP_NAME}
-                    echo "✓ Docker image built"
-                '''
-            }
-        }
-        
-        stage('Push Registry') {
-            steps {
-                echo "=== Stage 5: Push to Registry ==="
-                sh '''
-                    set -e
-                    IMAGE="${REGISTRY}/${APP_NAME}:${BUILD_NUMBER}"
-                    echo "Pushing: $IMAGE"
-                    # Nota: en producción descomentar para push real
-                    # docker push ${IMAGE}
-                    echo "✓ (Skipped in demo, would push to registry)"
-                '''
-            }
-        }
-        
-        stage('Deploy') {
-            steps {
-                echo "=== Stage 6: Deploy (Env=${DEPLOY_ENV}) ==="
-                sh '''
-                    set -e
-                    IMAGE="${REGISTRY}/${APP_NAME}:${BUILD_NUMBER}"
-                    CONTAINER="${APP_NAME}-${DEPLOY_ENV}"
-                    
-                    echo "Stopping old container..."
-                    docker stop ${CONTAINER} || true
-                    docker rm ${CONTAINER} || true
-                    
-                    echo "Starting new container..."
-                    docker run -d \\
-                        --name ${CONTAINER} \\
-                        -e APP_ENV=${DEPLOY_ENV} \\
-                        ${IMAGE}
-                    
-                    sleep 2
-                    docker logs ${CONTAINER}
-                    echo "✓ Deployed to ${DEPLOY_ENV}"
-                '''
-            }
-        }
-    }
-    
-    post {
-        always {
-            echo "=== Pipeline finished ==="
-        }
-        success {
-            echo "✓ Pipeline succeeded"
-        }
-        failure {
-            echo "✗ Pipeline failed"
-        }
-    }
-}
-```
-
-**Diferencias clave de la Opción B:**
-
-- **`agent any`**: todos los stages usan el mismo agente
-- **`docker run --rm -v "${WORKSPACE}:/workspace"`**: monta el workspace de Jenkins en el contenedor
-- **Sin stash/unstash**: no es necesario porque todos los stages comparten el mismo workspace
-- **Funciona sin plugins adicionales**: solo necesita Docker instalado
-
----
+3. **`args '-u root:root'`**: ejecuta el contenedor como root para evitar problemas de permisos al instalar paquetes
+4. **`reuseNode true`**: reutiliza el workspace del nodo Jenkins - los archivos ya están disponibles, no necesita unstash
+5. **`stash`**: guarda el código en el stage Checkout (útil si hubiera stages sin reuseNode)
+6. **`agent any`**: stages que necesitan Docker del host (build/deploy) usan el agente normal
 
 **¿Por qué usar Docker agents?**
 
@@ -470,8 +327,7 @@ pipeline {
 **Requisitos:**
 
 - Jenkins debe tener Docker instalado y accesible
-- **Opción A:** Plugin "Docker Pipeline" instalado
-- **Opción B:** Solo Docker, sin plugins adicionales necesarios
+- El plugin "Docker Pipeline" debe estar instalado en Jenkins
 
 ### Paso 1.2: Commit Jenkinsfile
 
@@ -777,34 +633,53 @@ sudo systemctl restart jenkins
 # O en Docker Desktop (Windows/Mac), asegurar que está habilitado
 ```
 
-### ❌ Error: "Cannot connect to Docker daemon"
+### ❌ Error: "Permission denied: '/.local'" al instalar paquetes Python
 
-**Solución:** Jenkins necesita permisos para acceder al Docker socket.
+**Causa:** El contenedor Docker no tiene permisos para escribir en directorios de instalación de paquetes.
 
-**En Linux:**
-```bash
-# Agregar usuario jenkins al grupo docker
-sudo usermod -aG docker jenkins
-sudo systemctl restart jenkins
-```
+**Solución:** Ejecutar el contenedor como root agregando `args '-u root:root'`:
 
-**En Windows/Mac con Docker Desktop:**
-- Asegurar que Docker Desktop está corriendo
-- En configuración, habilitar "Expose daemon on tcp://localhost:2375 without TLS"
-
-### ❌ Error: "docker: Cannot connect to the Docker daemon at unix:///var/run/docker.sock"
-
-**Solución:** El contenedor Docker necesita acceso al socket de Docker del host.
-
-En el Jenkinsfile Opción B, si necesitas montar el socket:
 ```groovy
-docker run --rm \\
-    -v /var/run/docker.sock:/var/run/docker.sock \\
-    -v "${WORKSPACE}:/workspace" \\
-    -w /workspace \\
-    ${PYTHON_IMAGE} \\
-    python -m pytest tests/ -v
+agent {
+    docker {
+        image 'python:3.11-slim'
+        args '-u root:root'
+        reuseNode true
+    }
+}
 ```
+
+Este error ya está corregido en la **Opción A** del Jenkinsfile mostrado arriba.
+
+### ❌ Error: "Failed to extract source-code.tar.gz" al hacer unstash
+
+**Causa:** Conflicto de permisos al intentar extraer el stash sobre archivos existentes en ejecuciones posteriores.
+
+**Solución:** Con `reuseNode true`, el workspace ya persiste entre stages, por lo que **no necesitas `unstash`**.
+
+Elimina las líneas `unstash 'source-code'` de los stages que usan `reuseNode true`:
+
+```groovy
+stage('Install Dependencies') {
+    agent {
+        docker {
+            image 'python:3.11-slim'
+            args '-u root:root'
+            reuseNode true  // ← Workspace ya disponible
+        }
+    }
+    steps {
+        // SIN unstash - archivos ya están aquí
+        sh '''
+            pip install -r requirements.txt
+        '''
+    }
+}
+```
+
+**Cuándo usar stash/unstash:**
+- Solo cuando cambias de nodo físico (sin `reuseNode`)
+- Con `reuseNode true`, el workspace se comparte automáticamente
 
 ### ❌ Error: "Pipeline stuck pending"
 
@@ -815,21 +690,16 @@ docker run --rm \\
 curl http://localhost:81/api/v4/runners  # En GitLab
 ```
 
-### ❌ Error: "Permission denied" al escribir archivos en Opción B
+### ❌ Error: "Workspace changed between stages"
 
-**Causa:** El contenedor Docker no tiene permisos sobre el workspace montado.
-
-**Solución:** Ejecutar el contenedor con el mismo UID que Jenkins, o dar permisos:
+**Solución:** Usar `stash` y `unstash` para transferir archivos entre stages con diferentes agents.
 
 ```groovy
-sh '''
-    docker run --rm \\
-        --user $(id -u):$(id -g) \\
-        -v "${WORKSPACE}:/workspace" \\
-        -w /workspace \\
-        ${PYTHON_IMAGE} \\
-        python -m pytest tests/ -v
-'''
+// En el stage que produce los archivos
+stash includes: '**', name: 'my-files'
+
+// En el stage que los necesita
+unstash 'my-files'
 ```
 
 ---
