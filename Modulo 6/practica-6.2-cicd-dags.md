@@ -66,7 +66,7 @@ Tests para validar DAG etl_usuarios.
 import sys
 import os
 import pytest
-from datetime import datetime
+from airflow.utils.dag_cycle_tester import check_cycle
 
 # Agregar dags al path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'dags'))
@@ -100,20 +100,20 @@ class TestETLUsuariosDAG:
     def test_dag_has_dependencies(self):
         """Validar que tasks tienen dependencias."""
         # extract_usuarios debe ser raíz
-        extract_task = dag.tasks_dict['extract_usuarios']
+        extract_task = dag.get_task('extract_usuarios')
         assert len(extract_task.upstream_list) == 0, "extract debe ser tarea inicial"
         
         # transform debe depender de extract
-        transform_task = dag.tasks_dict['transform_usuarios']
+        transform_task = dag.get_task('transform_usuarios')
         assert extract_task in transform_task.upstream_list, "transform debe depender de extract"
         
         # validate debe ser última
-        validate_task = dag.tasks_dict['validate_load']
+        validate_task = dag.get_task('validate_load')
         assert len([t for t in dag.tasks if t in validate_task.upstream_list]) > 0, "validate debe tener dependencias"
     
     def test_dag_scheduling(self):
         """Validar que DAG tiene schedule."""
-        assert dag.schedule_interval is not None, "DAG debe tener schedule_interval"
+        assert dag.schedule is not None, "DAG debe tener schedule"
     
     def test_dag_start_date(self):
         """Validar que DAG tiene start_date."""
@@ -121,10 +121,8 @@ class TestETLUsuariosDAG:
     
     def test_no_cycles(self):
         """Validar que no hay ciclos en DAG (acíclico)."""
-        # Airflow valida esto automáticamente, pero podemos validar
         try:
-            # Llamar a método que detecta ciclos
-            dag.validate_dagrun()
+            check_cycle(dag)
             assert True, "DAG no tiene ciclos"
         except Exception as e:
             pytest.fail(f"DAG tiene ciclos o error: {str(e)}")
@@ -237,7 +235,7 @@ pipeline {
                 echo "=== Ejecutando tests ==="
                 sh '''
                     pip install pytest apache-airflow pandas psycopg2-binary
-                    pytest tests/ -v --tb=short
+                    pytest tests/ -v --tb=short --junitxml=test-results.xml
                     echo "✓ Tests pasaron"
                 '''
             }
@@ -389,7 +387,7 @@ test_dags:
   script:
     - echo "=== Ejecutando tests ==="
     - pip install pytest apache-airflow pandas psycopg2-binary -q
-    - pytest tests/ -v --tb=short
+        - pytest tests/ -v --tb=short --junitxml=test-results.xml
     - echo "✓ Tests pasaron"
   artifacts:
     reports:
@@ -491,7 +489,7 @@ default_args = {
 dag = DAG(
     'sensor_procesar_archivo',
     default_args=default_args,
-    schedule_interval=None,  # Manual
+    schedule=None,  # Manual
     start_date=datetime(2024, 1, 1),
     tags=['sensor']
 )

@@ -230,12 +230,12 @@ default_args = {
 
 # Definir DAG
 dag = DAG(
-    'etl_usuarios',
+    "etl_usuarios",
     default_args=default_args,
-    schedule_interval='@daily',  # Ejecutar diariamente
+    schedule="@daily",   # antes: schedule_interval='@daily'
     start_date=datetime(2024, 1, 1),
     catchup=False,
-    tags=['etl', 'usuarios']
+    tags=["etl", "usuarios"],
 )
 
 # Task 1: Extract (leer CSV)
@@ -259,28 +259,26 @@ task_extract = PythonOperator(
 def transform_usuarios(ti):
     """Valida y transforma datos."""
     print("=== TRANSFORM ===")
-    
-    # Obtener resultado de extract
+
     df_json = ti.xcom_pull(task_ids='extract_usuarios')
     df = pd.read_json(df_json)
-    
+
     print(f"✓ Recibidos {len(df)} usuarios")
-    
+
+    # Convertir edad a número; lo inválido pasa a NaN
+    df['edad'] = pd.to_numeric(df['edad'], errors='coerce')
+
     # Validación: edad entre 18 y 100
-    df_valido = df[
-        (df['edad'] >= 18) & (df['edad'] <= 100) & (df['edad'].notna())
-    ].copy()
-    
+    mask_valido = df['edad'].between(18, 100, inclusive='both')
+    df_valido = df[mask_valido].copy()
+
     print(f"✓ Validados {len(df_valido)} usuarios (rechazados {len(df) - len(df_valido)})")
-    
-    # Usuario rechazado
-    rechazados = df[
-        (df['edad'] < 18) | (df['edad'] > 100) | (df['edad'].isna())
-    ]
+
+    rechazados = df[~mask_valido]
     if len(rechazados) > 0:
         print("⚠ Usuarios inválidos:")
         print(rechazados)
-    
+
     return df_valido.to_json()
 
 task_transform = PythonOperator(
